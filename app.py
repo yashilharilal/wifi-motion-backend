@@ -1,36 +1,23 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 import random
 import time
 import os
 
 app = Flask(__name__)
 
-rooms = {
-    "Bedroom": {
-        "history": [],
-        "last_alert_time": 0
-    },
-    "Lounge": {
-        "history": [],
-        "last_alert_time": 0
-    },
-    "Kitchen": {
-        "history": [],
-        "last_alert_time": 0
-    },
-    "Garage": {
-        "history": [],
-        "last_alert_time": 0
-    },
-    "Office": {
-        "history": [],
-        "last_alert_time": 0
-    }
-}
+room_states = {}
 
 
 def clamp(value, minimum, maximum):
     return max(minimum, min(maximum, value))
+
+
+def create_room_if_missing(room_name):
+    if room_name not in room_states:
+        room_states[room_name] = {
+            "history": [],
+            "last_alert_time": 0
+        }
 
 
 def generate_signal(history):
@@ -54,15 +41,30 @@ def generate_signal(history):
 @app.route("/")
 def home():
     return jsonify({
-        "message": "Smart Motion Multi-Room Backend Running"
+        "message": "Smart Motion Custom Room Backend Running",
+        "example": "/data?rooms=Bedroom,Bathroom,Garage"
     })
 
 
 @app.route("/data")
 def data():
+    rooms_param = request.args.get("rooms", "")
+
+    if rooms_param.strip() == "":
+        requested_rooms = ["Bedroom"]
+    else:
+        requested_rooms = [
+            room.strip()
+            for room in rooms_param.split(",")
+            if room.strip() != ""
+        ]
+
     room_results = []
 
-    for room_name, room_info in rooms.items():
+    for room_name in requested_rooms:
+        create_room_if_missing(room_name)
+
+        room_info = room_states[room_name]
         history = room_info["history"]
 
         signal = generate_signal(history)
