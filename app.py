@@ -5,48 +5,101 @@ import os
 
 app = Flask(__name__)
 
-history = []
-last_alert_time = 0
+rooms = {
+    "Bedroom": {
+        "history": [],
+        "last_alert_time": 0
+    },
+    "Lounge": {
+        "history": [],
+        "last_alert_time": 0
+    },
+    "Kitchen": {
+        "history": [],
+        "last_alert_time": 0
+    },
+    "Garage": {
+        "history": [],
+        "last_alert_time": 0
+    },
+    "Office": {
+        "history": [],
+        "last_alert_time": 0
+    }
+}
 
 
-@app.route('/data')
-def data():
-    global last_alert_time
+def clamp(value, minimum, maximum):
+    return max(minimum, min(maximum, value))
 
-    # Smooth simulated WiFi signal
+
+def generate_signal(history):
     if len(history) == 0:
-        signal = 70
+        return random.randint(65, 75)
+
+    previous_signal = history[-1]
+
+    normal_change = random.randint(-2, 2)
+
+    # small chance of bigger movement event
+    movement_event = random.random() < 0.12
+
+    if movement_event:
+        large_change = random.choice([-9, -8, -7, 7, 8, 9])
+        new_signal = previous_signal + large_change
     else:
-        signal = history[-1] + random.randint(-3, 3)
-        signal = max(40, min(90, signal))
+        new_signal = previous_signal + normal_change
 
-    history.append(signal)
+    return clamp(new_signal, 40, 90)
 
-    if len(history) > 20:
-        history.pop(0)
 
-    movement = False
-    alert = False
+@app.route("/")
+def home():
+    return jsonify({
+        "message": "Smart Motion Multi-Room Backend Running"
+    })
 
-    if len(history) >= 2:
-        diff = abs(history[-1] - history[-2])
 
-        # Lower threshold because signal is now smoother
-        if diff > 2:
-            movement = True
+@app.route("/data")
+def data():
+    room_results = []
 
-            current_time = time.time()
+    for room_name, room_info in rooms.items():
+        history = room_info["history"]
 
-            # Alert only once every 10 seconds
-            if current_time - last_alert_time > 10:
-                alert = True
-                last_alert_time = current_time
+        signal = generate_signal(history)
+
+        history.append(signal)
+
+        if len(history) > 20:
+            history.pop(0)
+
+        movement = False
+        alert = False
+
+        if len(history) >= 2:
+            diff = abs(history[-1] - history[-2])
+
+            if diff >= 5:
+                movement = True
+
+                current_time = time.time()
+
+                # alert cooldown per room
+                if current_time - room_info["last_alert_time"] > 10:
+                    alert = True
+                    room_info["last_alert_time"] = current_time
+
+        room_results.append({
+            "name": room_name,
+            "signal": signal,
+            "movement": movement,
+            "alert": alert,
+            "history": history
+        })
 
     return jsonify({
-        "movement": movement,
-        "signal": signal,
-        "history": history,
-        "alert": alert,
+        "rooms": room_results,
         "timestamp": time.time()
     })
 
