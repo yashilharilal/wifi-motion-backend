@@ -38,10 +38,8 @@ def generate_signal(history):
         return random.randint(65, 75)
 
     previous_signal = history[-1]
-
     normal_change = random.randint(-2, 2)
 
-    # small chance of bigger movement event
     movement_event = random.random() < 0.12
 
     if movement_event:
@@ -85,7 +83,6 @@ def data():
 
                 current_time = time.time()
 
-                # alert cooldown per room
                 if current_time - room_info["last_alert_time"] > 10:
                     alert = True
                     room_info["last_alert_time"] = current_time
